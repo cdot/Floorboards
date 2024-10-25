@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Floorboards</title>
+    <script src="./node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="./floorboards.js" type="module"></script>
+    <style>
+      body { font-family: Verdana, Arial, Helvetica, sans-serif; }
+    </style>
+  </head>
+  <body>
+    <div>
+      <p><em>
+        Upload a file containing room vertices
+      </em></p>
+      <label for="room_file"><b>Room file</b></label>
+      <input type="file" id="room_file" />
+    </div>
+    <div>
+      <p><em>
+          Describe the planks you will be using. Dimensions are all in cm.
+          Cut thickness is the thickness of a saw cut. Wherever possible, planks shorter than Min plank length will not be used (it's unavoidable sometimes).
+      </em></p>
+      <label for="PLANK_WIDTH"><b>Plank width</b></label>
+      <input id="PLANK_WIDTH" type="number" value="12.5"></input>
+      <label for="PLANK_LENGTH"><b>Plank length</b></label>
+      <input id="PLANK_LENGTH" type="number" value="91.5"></input>
+    </div>
+    <div>
+      <label for="CUT_THICKNESS"><b>Cut thickness</b></label>
+      <input id="CUT_THICKNESS" type="number" value="0.26"></input>
+      <label for="MIN_PLANK_LENGTH"><b>Min plank length</b></label>
+      <input id="MIN_PLANK_LENGTH" type="number" value="10"></input>
+    </div>
+    <div>
+      <p><em>
+        You can set an offset from the left edge of the room. A positive value will leave a gap between the wall anbd the first plank. A negative value will mean you'll have to trim the first row of planks lengthways.
+        This should never be larger than the width of a plank.
+      </em></p>
+      <label for="START_LEFT"><em>Start left</em></label>
+      <input id="START_LEFT" type="number" value="10.5"></input>
+    </div>
+    <p><em>
+      <span id="planksNeeded">0</span> planks are needed. There will be <span id="cuts">0</span> cuts, and a total wastage of <span id="waste">0</span>cm. "<" planks have their cut edges at the bottom, ">" planks at the top,
+    </em></p>
+    <canvas id="floor"></canvas>
+    <div id="schedule"></div>
+    <div>     
+      <button id="dump_room">Dump wall dimensions</button>
+    </div>
+  </body>
+</html>

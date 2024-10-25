@@ -53,10 +53,10 @@ const cmdRouter = Express.Router();
 cmdRouter.get(
   "/",
   (req, res) => res.sendFile(
-    Path.join(__dirname, "fill.html"),
+    Path.join(__dirname, "floorboards.html"),
     err => {
       if (err)
-        console.error(err, "\n*** Failed to load fill.html ***");
+        console.error(err, "\n*** Failed to load html ***");
     }
   ));
 express.use(cmdRouter);
