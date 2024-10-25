@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>fill</title>
+    <script src="./node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="./fill.js" type="module"></script>
+  </head>
+  <body>
+    <div>
+      <label for="PLANK_WIDTH">Plank width</label>
+      <input id="PLANK_WIDTH" type="number" value="12.5"></input>
+      <label for="PLANK_LENGTH">Plank length</label>
+      <input id="PLANK_LENGTH" type="number" value="91.5"></input>
+    </div>
+    <div>
+      <label for="CUT_THICKNESS">Cut thickness</label>
+      <input id="CUT_THICKNESS" type="number" value="0.26"></input>
+      <label for="MIN_PLANK_LENGTH">Min plank length</label>
+      <input id="MIN_PLANK_LENGTH" type="number" value="10"></input>
+    </div>
+    <div>
+      <label for="START_LEFT">Start left</label>
+      <input id="START_LEFT" type="number" value="10.5"></input>
+    </div>
+    <div>
+      <span id="planksNeeded">0</span> planks are needed. There will be <span id="cuts">0</span> cuts, and a wastage of <span id="waste">0</span>cm of plank.
+    </div>
+    <canvas id="floor"></canvas>
+  </body>
+</html>

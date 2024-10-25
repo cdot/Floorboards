@@ -1,0 +1,31 @@
+{
+    "name": "clabel-js-server",
+    "version": "0.0.1",
+    "type": "module",
+    "description": "CLabel server",
+    "main": "main.js",
+    "scripts": {
+        "lint": "eslint src -f unix",
+        "doc": "jsdoc -c jsdoc_config.json src",
+      "test": "mocha --recursive --extension js --timeout=5000 test",
+      "run": "node bin/server.js"
+    },
+    "dependencies": {
+        "cors": "^2.8.5",
+        "express": "^4.21.1",
+        "jquery": "^3.6.3",
+        "posix-getopt": "^1.2.1"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.12.0",
+        "assert": "^2.1.0",
+        "chai": "^5.1.1",
+        "docdash": "^2.0.2",
+        "eslint": "^9.12.0",
+        "eslint-formatter-unix": "^8.40.0",
+        "globals": "^15.11.0",
+        "jsdoc": "^4.0.4",
+        "mocha": "^10.7.3",
+        "tmp-promise": "^3.0.3"
+    }
+}
