@@ -269,6 +269,8 @@ for (let i = 0; i < vertices.length; i++) {
 /**
  * Working left to right, create columns and then populate the
  * columns with planks
+ * @param {number} left start left
+ * @return {Column[]} array of columns
  */
 function columnise(left) {
   // Reset plank IDs
@@ -377,6 +379,7 @@ function shuffle(columns) {
   columns.sort((a, b) => {
     return (a.left < b.left) ? -1 : (a.left > b.left) ? 1 : 0;
   });
+
   let newId = 1;
   const remap = {};
   for (const col of columns) {
@@ -408,14 +411,26 @@ function repaint(columns, surf) {
   for (const col of columns) {
     col.draw(surf);
   }
+
+  // Dump the cutting schedule
+  const story = [];
+  for (const col of columns) {
+    for (const plank of col.planks) {
+      if (plank.AB != "")
+        story.push(`${plank.id} ${plank.AB} ${plank.length.toFixed(2)}cm`);
+    }
+  }
+  $("#schedule").html(story.sort((a, b) => parseInt(a) - parseInt(b)).join("<br>"));
 }
+
+let columns;
 
 /**
  * Recompute the layout and redisplay
  * @param {Surface} surf drawing context
  */
 function reFloor(surf) {
-  const columns = columnise(leftmost + params.START_LEFT);
+  columns = columnise(leftmost + params.START_LEFT);
   shuffle(columns);
   surf.clear();
   repaint(columns, surf);
@@ -436,13 +451,15 @@ for (const key of Object.keys(params)) {
 
 reFloor(surf);
 
-// Dump the dimensions of each edge, useful to double-check
-// room measurements
-for (let i = 0; i < vertices.length - 1; i++) {
-  const v1 = vertices[i];
-  const v2 = vertices[(i + 1) % vertices.length];
-  const dx = v2.x - v1.x;
-  const dy = v2.y - v1.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  console.log(`${v1.id}->${v2.id} ${len}`);
-}
+$("#dump_room").on("click", () => {
+  // Dump the dimensions of each edge, useful to double-check
+  // room measurements
+  for (let i = 0; i < vertices.length - 1; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % vertices.length];
+    const dx = v2.x - v1.x;
+    const dy = v2.y - v1.y;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    console.log(`${v1.id}->${v2.id} ${len}`);
+  }
+});
