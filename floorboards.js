@@ -6,7 +6,17 @@
  */
 class HEdge {
 
+  /*
+   * @param {object|number} left copy object or left end of the edge
+   * @param {number} right right end of the edge
+   * @param {number} y level of the edge
+   */
   constructor(left, right, y) {
+    if (typeof left === "object") {
+      y = left.y;
+      right = left.right;
+      left = left.left;
+    }
     // Left end of this edge
     this.left = left;
     // Right end of this edge
@@ -21,19 +31,99 @@ class HEdge {
 }
 
 /**
+ * Planks are laid into columns
+ */
+class Plank {
+
+  static NEXT = 1;
+
+  /**
+   * @param {object|number} left copy object or left of the plank
+   * @param {number} top top of the plank
+   * @param {number} width width of the plank
+   * @param {number} length top of the plank
+   * @param {string} id identifier for the plank
+   */
+  constructor(left, top, width, length, id) {
+    if (typeof left === "object") {
+      this.id = left.id;
+      this.TB = left.TB;
+      this.left = left.left;
+      this.top = left.top;
+      this.width = left.width;
+      this.length = left.length;      
+    } else {
+      // Identified for this plank
+      this.id = id ?? Plank.NEXT++;
+      // Which side of a cut this plank is (blank if it's a whole plank)
+      this.TB = "";
+      // Where the plank is
+      this.left = left;
+      this.top = top;
+      // How big it is
+      this.width = width;
+      this.length = length;
+    }
+  }
+
+  get bottom() { return this.top + this.length; }
+
+  get middle() { return this.top + this.length / 2; }
+
+  get right() { return this.left + this.width; }
+
+  get centre() { return this.left + this.width / 2; }
+
+  /**
+   * @param {Surface} surf
+   */
+  draw(surf) {
+    surf.ctx.beginPath();
+    surf.moveTo(this.left, this.top);
+    surf.lineTo(this.left, this.bottom);
+    surf.lineTo(this.right, this.bottom);
+    surf.lineTo(this.right, this.top);
+    surf.lineTo(this.left, this.top);
+    surf.ctx.closePath();
+    surf.ctx.stroke();
+
+    surf.rotatedText(`${this.id}${this.TB}`, this.width, this.centre, this.middle);
+  }
+  
+  toString() {
+    return `Plank ${this.id}${this.TB}<${this.length}> (${this.left},${this.top})`;
+  }
+}
+
+/**
  * The room is divided left-to-right into columns, each the width of
  * a plank. Then the planks are laid into each column.
  */
 class Column {
 
+  /**
+   * @param {object|number} left copy object or left of column
+   * @param {number?} width
+   */
   constructor(left, width) {
-    this.left = left;
-    this.width = width;
-    // Top and bottom will be worked out by limit()
-    this.top = Number.MAX_SAFE_INTEGER;
-    this.bottom = Number.MIN_SAFE_INTEGER;
     // Planks in this column
     this.planks = [];
+    let top = Number.MAX_SAFE_INTEGER;
+    let bottom = Number.MIN_SAFE_INTEGER;
+
+    if (typeof left === "object") {
+      width = left.width;
+      top = left.top;
+      bottom = left.bottom;
+      for (const plank of left.planks)
+        this.planks.push(new Plank(plank));
+      left = left.left;
+    }
+
+    this.left = left;
+    this.width = width;
+    this.top = top;
+    this.bottom = bottom;
   }
 
   /**
@@ -83,60 +173,6 @@ class Column {
 
   toString() {
     return `Col T${this.top},L${this.left},B${this.bottom},R${this.right}`;
-  }
-}
-
-/**
- * Planks are laid into columns
- */
-class Plank {
-
-  static NEXT = 1;
-
-  /**
-   * @param {number} left left of the plank
-   * @param {number} top top of the plank
-   * @param {string} id identifier for the plank
-   */
-  constructor(left, top, width, length, id) {
-    // Identified for this plank
-    this.id = id ?? Plank.NEXT++;
-    // Which side of a cut this plank is (blank if it's a whole plank)
-    this.TB = "";
-    // Where the plank is
-    this.left = left;
-    this.top = top;
-    // How big it is
-    this.width = width;
-    this.length = length;
-  }
-
-  get bottom() { return this.top + this.length; }
-
-  get middle() { return this.top + this.length / 2; }
-
-  get right() { return this.left + this.width; }
-
-  get centre() { return this.left + this.width / 2; }
-
-  /**
-   * @param {Surface} surf
-   */
-  draw(surf) {
-    surf.ctx.beginPath();
-    surf.moveTo(this.left, this.top);
-    surf.lineTo(this.left, this.bottom);
-    surf.lineTo(this.right, this.bottom);
-    surf.lineTo(this.right, this.top);
-    surf.lineTo(this.left, this.top);
-    surf.ctx.closePath();
-    surf.ctx.stroke();
-
-    surf.rotatedText(`${this.id}${this.TB}`, this.width, this.centre, this.middle);
-  }
-  
-  toString() {
-    return `Plank ${this.id}${this.TB}<${this.length}> (${this.left},${this.top})`;
   }
 }
 
@@ -199,29 +235,37 @@ class Surface {
   }
 }
 
-class Floorboards {
+class Room {
 
   /**
-   * Names of parameters coming from HTML. These are written
+   * Names and defaults for parameters coming from HTML. These are written
    * into the object.
    */
-  static PARAMS = [
-    "START_LEFT",
-    "PLANK_WIDTH",
-    "PLANK_LENGTH",
-    "CUT_THICKNESS",
-    "MIN_PLANK_LENGTH"
-  ];
+  static PARAMS = {
+    START_LEFT: 0,
+    PLANK_WIDTH: 10,
+    PLANK_LENGTH: 60,
+    CUT_THICKNESS: 0.5,
+    MIN_PLANK_LENGTH: 20
+  };
 
   /**
-   * @param {Object[]} vertices the vertices that describe the room,
-   * an array of tuples {x:, y:, id:} The top left of the room
-   * diagram is at 0,0. Y coordinates grow downwards, X left to right.
-   * The id is used to identify which vertex relates to which
-   * room feature.
+   * @param {Object} template
+   * @param {object[]} template.vertices required, the vertices that
+   * describe the room, an array of tuples {x:, y:, id:} The top left
+   * of the room diagram is at 0,0. Y coordinates grow downwards, X
+   * left to right.  The id is used to identify which vertex relates
+   * to which room feature.
+   * The rest of the template object is used to provide values for
+   * other fields in the object when loading from JSON.
    */
-  constructor(vertices) {
-    this.vertices = [];
+  constructor(template = {}) {
+    this.vertices = template.vertices ?? [];
+
+    for (const key of Object.keys(Room.PARAMS)) {
+      this[key] = template[key] ?? Room.PARAMS[key];
+      $(`#${key}`).val(this[key]);
+    }
 
     /**
      * Array of horizontal edges that are all aligned
@@ -229,61 +273,50 @@ class Floorboards {
      * @member {HEdge[]}
      */
     this.hedges = [];
-    this.leftmost = Number.MAX_SAFE_INTEGER;
-    this.rightmost = Number.MIN_SAFE_INTEGER;
-    this.topmost = Number.MAX_SAFE_INTEGER;
-    this.bottommost = Number.MIN_SAFE_INTEGER;
-    this.surf = new Surface($("#floor")[0]);
-    if (vertices)
-      this.loadRoom(vertices);
+    for (const hedge of template.hedges)
+      this.hedges.push(new HEdge(hedge));
+    this.columns = [];
+    for (const col of template.columns)
+      this.columns.push(new Column(col));
+    this.leftmost = template.leftmost ?? Number.MAX_SAFE_INTEGER;
+    this.rightmost = template.rightmost ?? Number.MIN_SAFE_INTEGER;
+    this.topmost = template.topmost ?? Number.MAX_SAFE_INTEGER;
+    this.bottommost = template.bottommost ?? Number.MIN_SAFE_INTEGER;
+    console.log("Loaded", this);
   }
 
   /**
-   * Load floorboards with a new room
-   * @param {Object[]} vertices the vertices that describe the room,
-   * see the constructor
+   * Construct hedges, dimensions, surface from room vertices
+   * @private
    */
-  loadRoom(vertices) {
-    if (!Array.isArray(vertices)
-        || typeof vertices[0] != "object"
-        || typeof vertices[0].x != "number"
-        || typeof vertices[0].y != "number")
-      throw new Error("Not vertices");
-
-    this.vertices = vertices;
-
+  measure() {
     this.hedges = [];
- 
+
     this.leftmost = Number.MAX_SAFE_INTEGER;
     this.rightmost = Number.MIN_SAFE_INTEGER;
     this.topmost = Number.MAX_SAFE_INTEGER;
     this.bottommost = Number.MIN_SAFE_INTEGER;
 
-    for (let i = 0; i < vertices.length; i++) {
-      const p1 = vertices[i];
+    for (let i = 0; i < this.vertices.length; i++) {
+      const p1 = this.vertices[i];
       this.leftmost = Math.min(this.leftmost, p1.x);
       this.rightmost = Math.max(this.rightmost, p1.x);
       this.topmost = Math.min(this.topmost, p1.y);
       this.bottommost = Math.max(this.bottommost, p1.y);
     
-      const p2 = vertices[(i + 1) % vertices.length];
+      const p2 = this.vertices[(i + 1) % this.vertices.length];
       if (p1.y === p2.y) // Horizontal edge
         this.hedges.push(new HEdge(Math.min(p1.x, p2.x), Math.max(p1.x, p2.x), p1.y));
     }
 
-    this.surf.resize(
-      this.leftmost, this.topmost,
-      this.rightmost - this.leftmost, this.bottommost - this.topmost);
-
     //console.debug(`Leftmost ${leftmost} Rightmost ${rightmost}`);
     //console.debug(`Topmost ${topmost} Bottommost ${bottommost}`);
-    this.recomputeFloor();
-    this.repaint();
   }
 
   /**
    * Working left to right, create columns and then populate the
    * columns with planks
+   * @private
    */
   columnise() {
     // Reset plank IDs
@@ -302,12 +335,14 @@ class Floorboards {
       //console.debug(col.toString());
       let y = col.top; // place to put next plank
       let h = col.height; // amt of this col to fill
+      let startedWith = this.PLANK_LENGTH;
       if (inHand) {
         col.planks.push(inHand);
         h -= inHand.length;
         inHand.left = l;
         inHand.top = y;
         y += inHand.length;
+        startedWith = inHand.length;
         inHand = undefined;
       }
       let fullPlanks = 0;
@@ -317,11 +352,22 @@ class Floorboards {
         fullPlanks++;
         h -= this.PLANK_LENGTH;
       }
+
+      // If we need to cut a plank, and that would result in a cut that's
+      // too short, and we started this column with a cut, go back
+      // and try again starting the column with a full plank.
+      // SMELL: alternatively, cut the inHand plank in three?
+      if (h > 0 && h < this.MIN_PLANK_LENGTH
+          && startedWith < this.PLANK_LENGTH) {
+        waste += startedWith;
+        columns.pop();
+        continue;
+      }
+
       //console.debug(`\t${fullPlanks} full planks`);
       planksNeeded += fullPlanks;
 
       if (h > 0) {
-        // need to cut a plank
         planksNeeded++;
         cuts++;
 
@@ -332,6 +378,7 @@ class Floorboards {
       
         // Deal with the excess
         const over = this.PLANK_LENGTH - h - this.CUT_THICKNESS;
+        waste += this.CUT_THICKNESS;
         if (over > this.MIN_PLANK_LENGTH) {
           // save the rest of the cut plank
           inHand = new Plank(l, y, this.PLANK_WIDTH, over, cp.id);
@@ -341,6 +388,7 @@ class Floorboards {
         } else {
           // waste the rest of the cut plank
           //console.debug(`\t+1 cut to ${h}, ${over}cm wasted`);
+          cp.TB = ">";
           waste += over;
         }
       }
@@ -358,8 +406,10 @@ class Floorboards {
    * Randomise the order of equal length columns. This is designed to
    * break up staircase effects that happen when you simply lay the
    * planks boustrophedonically.
+   * @private
    */
   shuffle() {
+    console.debug("Shuffling");
     // collect equal length columns into bins
     const bins = {};
     for (const col of this.columns) {
@@ -404,35 +454,59 @@ class Floorboards {
   }
 
   /**
+   * Format the cutting schedule. The schedule is returned as an array
+   * of objects, each being a pair of strings, one for the bottom end of
+   * the plank and the other for the top end.
+   * @return {{"<":string,">":string}[]} cutting schedule
+   */
+  cuttingSchedule() {
+    const cuts = [];
+    for (const col of this.columns) {
+      for (const plank of col.planks) {
+        if (plank.TB != "") {
+          if (!cuts[plank.id])
+            cuts[plank.id] = {};
+          let cut;
+          if (plank.TB == "<")
+            cut = `${plank.id}< ${plank.length.toFixed(1)}`;
+          else
+            cut = `${plank.length.toFixed(1)} ${plank.id}>`;
+          cuts[plank.id][plank.TB] = cut;
+        }
+      }
+    }
+    return cuts;
+  }
+
+  /**
    * Repaint the canvas with the given columns
    * @param {Surface} surf drawing context
    */
-  repaint() {
-    this.surf.clear();
+  repaint(surf) {
+    surf.clear();
 
-    this.surf.ctx.fillStyle = "rgba(255,165,0,50)";
-    this.surf.ctx.beginPath();
-    this.surf.moveTo(this.vertices[0].x, this.vertices[0].y);
+    if (this.vertices.length < 3)
+      // Need at least 3 vertices to make a rectilinear room.
+      return;
+
+    surf.ctx.fillStyle = "rgba(255,165,0,50)";
+    surf.ctx.beginPath();
+    surf.moveTo(this.vertices[0].x, this.vertices[0].y);
     for (let i = 1; i < this.vertices.length; i++)
-      this.surf.lineTo(this.vertices[i].x, this.vertices[i].y);
+      surf.lineTo(this.vertices[i].x, this.vertices[i].y);
 
-    this.surf.lineTo(this.vertices[0].x, this.vertices[0].y);
-    this.surf.ctx.closePath();
-    this.surf.ctx.fill();
+    surf.lineTo(this.vertices[0].x, this.vertices[0].y);
+    surf.ctx.closePath();
+    surf.ctx.fill();
 
-    for (const col of this.columns) {
-      col.draw(this.surf);
-    }
+    for (const col of this.columns)
+      col.draw(surf);
 
     // Dump the cutting schedule
-    const story = [];
-    for (const col of this.columns) {
-      for (const plank of col.planks) {
-        if (plank.TB != "")
-          story.push(`${plank.id} ${plank.TB} ${plank.length.toFixed(2)}cm`);
-      }
-    }
-    $("#schedule").html(story.sort((a, b) => parseInt(a) - parseInt(b)).join("<br>"));
+    const sched = this.cuttingSchedule()
+          .filter(cut => typeof cut !== "undefined")
+          .map(cut => `${cut["<"]} | ${cut[">"]}`);
+    $("#schedule").html(sched.join("<br>"));
   }
 
   /**
@@ -442,59 +516,70 @@ class Floorboards {
   recomputeFloor() {
     // Construct and fill columns with planks
     this.columnise();
-    // shuffle columns to avoid staircases
-    this.shuffle();
-  }
-
-  /**
-   * Dump the dimensions of each edge in the room, useful to double-check
-   * room measurements
-   * @return {string[]} array of edge descriptions
-   */
-  dumpRoom() {
-    const dump = [];
-    for (let i = 0; i < this.vertices.length - 1; i++) {
-      const v1 = this.vertices[i];
-      const v2 = this.vertices[(i + 1) % this.vertices.length];
-      const dx = v2.x - v1.x;
-      const dy = v2.y - v1.y;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      dump.push(`${v1.id}->${v2.id} ${len}`);
-    }
-    return dump;
   }
 }
 
-let floorboards = new Floorboards();
+let room;
+const surf = new Surface($("#floor")[0]);
 
-$("#dump_room")
-.on("click", () => console.log(floorboards.dumpRoom().join("\n")));
-
-for (const key of Floorboards.PARAMS) {
-  floorboards[key] = Number($(`#${key}`).val());
-  $(`#${key}`).on("change", function() {
-    //console.debug(this.id,this.value);
-    floorboards[this.id] = Number(this.value);
-    floorboards.recomputeFloor();
-    floorboards.repaint();
+function loadRoom(file) {
+  console.log(`Loading ${file}`);
+  return $.get(file, data => {
+    room = new Room(data);
+    if (room.columns.length === 0) {
+      room.measure();
+      room.recomputeFloor();
+    }
+    surf.resize(
+      room.leftmost, room.topmost,
+      room.rightmost - room.leftmost, room.bottommost - room.topmost);
+    room.repaint(surf);
+    return room;
   });
 }
 
-$("#room_file").on("change", function() {
-  if (this.files[0] == undefined)
-    return;
-  $.get(this.files[0].name,
-        vertices => {
-        try {
-          floorboards.loadRoom(vertices);
-        } catch (e) { alert(e); }
-        });
+$("#try_again")
+.on("click", () => {
+  room.recomputeFloor();
+  room.repaint(surf);
 });
 
-$.get($("#room_file")[0].files[0].name,
-      vertices => {
-        try {
-          floorboards.loadRoom(vertices);
-        } catch (e) { alert(e); }
-      });
+$("#shuffle")
+.on("click", () => {
+  // shuffle columns to avoid staircases
+  room.shuffle();
+  room.repaint(surf);
+});
 
+$("#save_room")
+.on("click", () => {
+  // Creating a blob object from non-blob data using the Blob constructor
+  const blob = new Blob([ JSON.stringify(room) ],
+                        { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = $("<a></a>");
+  a[0].href = url;
+  a[0].download = "room.json";
+  $("body").append(a);
+  a[0].click();
+  $("body").remove(a);
+});
+
+for (const key of Object.keys(Room.PARAMS)) {
+  $(`#${key}`).on("change", function() {
+    //console.debug(this.id,this.value);
+    room[this.id] = Number(this.value);
+    room.recomputeFloor();
+    room.repaint(surf);
+  });
+}
+
+$("#room_file").on("change", function () {
+  if (this.files[0] == undefined)
+    return;
+  loadRoom(this.files[0].name);
+});
+
+const room_file = $("#room_file")[0];
+if (room_file.files[0])
+  loadRoom(room_file.files[0].name);

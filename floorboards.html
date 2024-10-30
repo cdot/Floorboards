@@ -12,7 +12,9 @@
   <body>
     <div>
       <p><em>
-        Upload a file containing room vertices
+          Upload a room file. At minimum this is a JSON file containing
+          the layout of the room (an array of vertices). You can save a
+          layout to a room file, and reload it later.
       </em></p>
       <label for="room_file"><b>Room file</b></label>
       <input type="file" id="room_file" />
@@ -35,19 +37,23 @@
     </div>
     <div>
       <p><em>
-        You can set an offset from the left edge of the room. A positive value will leave a gap between the wall anbd the first plank. A negative value will mean you'll have to trim the first row of planks lengthways.
-        This should never be larger than the width of a plank.
+          You can start the planking at an offset from the left edge of the
+          room. A positive value will leave a gap between the wall and the
+          first plank. A negative value will mean you'll have to trim the
+          first row of planks lengthways.
+          The offset should never be more than the width of a plank.
       </em></p>
       <label for="START_LEFT"><em>Start left</em></label>
       <input id="START_LEFT" type="number" value="10.5"></input>
     </div>
-    <p><em>
-      <span id="planksNeeded">0</span> planks are needed. There will be <span id="cuts">0</span> cuts, and a total wastage of <span id="waste">0</span>cm. "<" planks have their cut edges at the bottom, ">" planks at the top,
-    </em></p>
+    <hr />
+    <p>
+      <span id="planksNeeded">0</span> planks are needed. There will be <span id="cuts">0</span> cuts, and a total wastage of <span id="waste">0</span>cm. "<" planks have their cut edges at the bottom, ">" planks at the top. If you don't like the layout you can <button id="shuffle">shuffle</button> the columns.
+    </p>
     <canvas id="floor"></canvas>
     <div id="schedule"></div>
     <div>     
-      <button id="dump_room">Dump wall dimensions</button>
+      <button id="save_room">Save room</button>
     </div>
   </body>
 </html>
