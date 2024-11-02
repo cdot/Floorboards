@@ -7,22 +7,29 @@
 class HEdge {
 
   /*
-   * @param {object|number} left copy object or left end of the edge
-   * @param {number} right right end of the edge
-   * @param {number} y level of the edge
+   * @param {object} attrs attributes
+   * @param {number} attrs.left end of the edge
+   * @param {number} attrs.right right end of the edge
+   * @param {number} attrs.y level of the edge
    */
-  constructor(left, right, y) {
-    if (typeof left === "object") {
-      y = left.y;
-      right = left.right;
-      left = left.left;
-    }
-    // Left end of this edge
-    this.left = left;
-    // Right end of this edge
-    this.right = right;
-    // Y for this edge
-    this.y = y;
+  constructor(attrs) {
+    /**
+     * Left end of this edge
+     * @member {number}
+     */
+    this.left = attrs.left ?? 0;
+
+    /**
+     * Right end of this edge
+     * @member {number}
+     */
+    this.right = attrs.right ?? 0;
+
+    /**
+     * Y for this edge
+     * @member {number}
+     */
+    this.y = attrs.y ?? 0;
   }
 
   toString() {
@@ -36,34 +43,72 @@ class HEdge {
 class Plank {
 
   static NEXT = 1;
+  static UID = 0;
 
   /**
-   * @param {object|number} left copy object or left of the plank
-   * @param {number} top top of the plank
-   * @param {number} width width of the plank
-   * @param {number} length top of the plank
-   * @param {string} id identifier for the plank
+   * @param {object} attrs plank attributes
+   * @param {number} attrs.left left of the plank
+   * @param {number} attrs.top top of the plank
+   * @param {number} attrs.width width of the plank
+   * @param {number} attrs.length top of the plank
+   * @param {string} attrs.id identifier for the plank
+   * @param {string} attrs.cut_end cut end, "" (neither end), ">" (top end) or
+   * "<" (bottom end)
+   * @param {boolean} attrs.permanent true if the plank has
+   * to be retained in the partial plank set on re-layout
    */
-  constructor(left, top, width, length, id) {
-    if (typeof left === "object") {
-      this.id = left.id;
-      this.TB = left.TB;
-      this.left = left.left;
-      this.top = left.top;
-      this.width = left.width;
-      this.length = left.length;      
-    } else {
-      // Identified for this plank
-      this.id = id ?? Plank.NEXT++;
-      // Which side of a cut this plank is (blank if it's a whole plank)
-      this.TB = "";
-      // Where the plank is
-      this.left = left;
-      this.top = top;
-      // How big it is
-      this.width = width;
-      this.length = length;
-    }
+  constructor(attrs) {
+    /**
+     * Internal ID for plank, used to identify planks
+     */
+    this.uid = Plank.UID++;
+
+    /**
+     * User identifier for this plank, a simple number
+     * @member {number}
+     */
+    this.id = attrs.id ?? Plank.NEXT++;
+
+    /**
+     * Which end of this plank is cut (blank if it's a whole plank)
+     * @member {string}
+     */
+    this.cut_end = attrs.cut_end ?? "";
+
+    /**
+     * Where the plank is. This will be 0 until the plank is actually
+     * placed.
+     * @member {number}
+     */
+    this.left = attrs.left ?? 0;
+
+    /**
+     * Where the plank is. This will be 0 until the plank is actually
+     * placed.
+     * @member {number}
+     */
+    this.top = attrs.top ?? 0;
+
+    /**
+     * How big it is. All planks will be the same width as the
+     * column (which will be Room.PLANK_WIDTH). This is just to save
+     * going back to the column for that number.
+     * @member {number}
+     */
+    this.width = attrs.width ?? 0;
+
+    /**
+     * Length of this piece of plank
+     * @member {number}
+     */
+    this.length = attrs.length ?? 0;
+
+    /**
+     * If the plank has to be retained in the partial plank set on re-layout.
+     * Permanent partials are added by the user and are assumed to be required
+     * between layout runs.
+     */
+    this.permanent = attrs.permanent ?? false;
   }
 
   get bottom() { return this.top + this.length; }
@@ -78,20 +123,41 @@ class Plank {
    * @param {Surface} surf
    */
   draw(surf) {
-    surf.ctx.beginPath();
-    surf.moveTo(this.left, this.top);
-    surf.lineTo(this.left, this.bottom);
-    surf.lineTo(this.right, this.bottom);
-    surf.lineTo(this.right, this.top);
-    surf.lineTo(this.left, this.top);
-    surf.ctx.closePath();
-    surf.ctx.stroke();
+    // Create a group to hold the plank and the ID string. This is
+    // only done to make it easier to manipulate in an exported SVG.
+    surf.openGroup();
 
-    surf.rotatedText(`${this.id}${this.TB}`, this.width, this.centre, this.middle);
+    // Draw the plank
+    const colour = this.permanent ? "red" : "none";
+    surf.drawRect(this.left, this.top, this.width, this.length)
+    .fill({ color: colour, opacity: 0.1 })
+    .stroke({ color: "black", opacity: 0.1, width: 1 });
+
+    // Annotate with the ID
+    const fore = this.cut_end == "<" ? "<" : "";
+    const aft = this.cut_end == ">" ? ">" : "";
+    surf.drawText(
+      `${fore}${this.id}${aft}`,
+      this.centre, this.middle, 3 * this.width / 4, -90);
+
+    surf.closeGroup();
   }
   
   toString() {
-    return `Plank ${this.id}${this.TB}<${this.length}> (${this.left},${this.top})`;
+    return `${this.id} ${this.cut_end} ${this.length}cm`;
+  }
+
+  /**
+   * Generate HTML to show the plank in the partials list
+   * @return {jQuery} reference to generated element
+   */
+  html() {
+    const cut_at = this.cut_end == "<" ? ", cut at bottom"
+          : this.cut_end == ">" ? ", cut at top" : "";
+    const $p = $(`<div>Plank ${this.id}, length ${this.length.toFixed(1)} ${cut_at} ${this.permanent ? "(user)" : ""} </div>`);
+    const $b = $(`<button data-uid="${this.uid}">remove</button>`);
+    $p.append($b);
+    return $p;
   }
 }
 
@@ -102,36 +168,54 @@ class Plank {
 class Column {
 
   /**
-   * @param {object|number} left copy object or left of column
-   * @param {number?} width
+   * @param {object} attrs attributes (might be another Column)
+   * @param {number} attrs.width width of the column
+   * @param {number} attrs.left left edge of the column
+   * @param {number} attrs.top top of the column
+   * @param {number} attrs.bottom bottom of the column
+   * @param {Plank} attrs.planks planks in the column
    */
-  constructor(left, width) {
-    // Planks in this column
+  constructor(attrs = {}) {
+    /**
+     * left edge of the column
+     * @member {number}
+     */
+    this.left = attrs.left ?? 0;
+
+    /**
+     * width of the column
+     * @member {number}
+     */
+    this.width = attrs.width ?? 0;
+
+    /**
+     * top of the column (min y)
+     * @member {number}
+     */
+    this.top = attrs.top ?? Number.MAX_SAFE_INTEGER;
+
+    /**
+     * bottom of the column (max y)
+     * @member {number}
+     */
+    this.bottom = attrs.bottom ?? Number.MIN_SAFE_INTEGER;;
+
+    /**
+     * planks in the column
+     * @member {Plank[]}
+     */
     this.planks = [];
-    let top = Number.MAX_SAFE_INTEGER;
-    let bottom = Number.MIN_SAFE_INTEGER;
-
-    if (typeof left === "object") {
-      width = left.width;
-      top = left.top;
-      bottom = left.bottom;
-      for (const plank of left.planks)
+    if (attrs.planks)
+      for (const plank of attrs.planks)
         this.planks.push(new Plank(plank));
-      left = left.left;
-    }
-
-    this.left = left;
-    this.width = width;
-    this.top = top;
-    this.bottom = bottom;
   }
 
   /**
    * Check if a horizontal edge imposes a limit on the top/bottom
-   * of our column.
+   * of our column, and clip the column accordingly.
    * @param {HEdge} hedge the edge
    */
-  limit(hedge) {
+  clip(hedge) {
     if ((hedge.left <= this.left && hedge.right > this.left)
         // intersects left side
         || (hedge.left < this.right && hedge.right >= this.right)
@@ -177,61 +261,153 @@ class Column {
 }
 
 /**
- * Interface to canvas context, supporting margins and scaling
+ * A drawing surface, using SVG.
  */
 class Surface {
 
-  static SCALE = 2;
-  static MARGIN = 10;
+  static SVG_NS = 'http://www.w3.org/2000/svg';
 
   /**
-   * @param {canvas} can canvas
+   * @param {jQuery} $container svg container
    */
-  constructor(can) {
-    this.canvas = can;
-    this.scale = Surface.SCALE;
-    this.ctx = can.getContext("2d");
+  constructor($container) {
+    /**
+     * HTML element that contains the SVG object
+     * @member {Element}
+     * @private
+     */
+    this.svg_div = $container[0];
+
+    /**
+     * SVG object
+     * @member {SVG}
+     * @private
+     */
+    this.svg = SVG();
+    this.svg.addTo(this.svg_div);
+
+    /**
+     * Width of drawing area
+     * @member {number}
+     * @private
+     */
+    this.w = 0;
+
+    /**
+     * Height of drawing area
+     * @member {number}
+     * @private
+     */
+    this.h = 0;
+
+    /**
+     * Margin around drawing area
+     * @member {number}
+     * @private
+     */
+    this.margin = 0;
+
+    /**
+     * Currently open group
+     * @member {SVGGroup}
+     * @private
+     */
+    this.group = undefined;
   }
 
+  /**
+   * Clear the drawing
+   */
+  clear() {
+    this.svg.clear();
+  }
+  
   /**
    * Resize the surface, to accomodate a different sized room.
    * @param {number} l eft
    * @param {number} t top
    * @param {number} w width
    * @param {number} h height
+   * @param {number} m margin
    */
-  resize(l, t, w, h) {
-    this.ox = Surface.MARGIN - l, this.oy = Surface.MARGIN - t;
-    this.w = w + 2 * Surface.MARGIN, this.h = h + 2 * Surface.MARGIN;
-    this.canvas.height = this.scale * this.h;
-    this.canvas.width = this.scale * this.w;
-  }
-  
-  clear() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-  }
-  
-  moveTo(x, y) {
-    this.ctx.moveTo(this.scale * (x + this.ox),
-                    this.scale * (y + this.oy));
+  resize(l, t, w, h, m) {
+    this.w = w, this.h = h, this.margin = m;
+    this.svg_div.width = this.w + 2 * m;
+    this.svg_div.height = this.h + 2 * m;
+    this.svg.size("100%", "100%");
+    this.svg.viewbox(0, 0, this.w + 2 * m, this.h + 2 * m);
   }
 
-  lineTo(x, y) {
-    this.ctx.lineTo(this.scale * (x + this.ox),
-                    this.scale * (y + this.oy));
+  /**
+   * Generate a image/svg+xml blob
+   */
+  blob() {
+    return new Blob([ this.svg.svg() ], { type: 'image/svg+xml' });
   }
 
-  rotatedText(t, h, x, y) {
-    this.ctx.fillStyle = "rgb(0,0,0)";
-    this.ctx.font = `${h}px sans-serif`;
-    this.ctx.save();
-    this.ctx.translate(this.scale * (x + this.ox),
-                       this.scale * (y + this.oy));
-    this.ctx.rotate(-Math.PI/2);
-    this.ctx.textAlign = 'center';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(t, 0, 0);
-    this.ctx.restore();
+  /**
+   * Open a group. Drawing operations will be added to the
+   * group until it is closed
+   */
+  openGroup() {
+    this.group = this.svg.group();
+  }
+
+  /**
+   * Close the currently open group
+   */
+  closeGroup() {
+    this.group = undefined;
+  }
+
+  /**
+   * Draw rectangle
+   * @param {number} x left edge
+   * @param {number} top top edge
+   * @param {number} w width
+   * @param {number} h height
+   * @return {SVG.Rect} svg rectangle object
+   */
+  drawRect(x, y, w, h) {
+    return (this.group ?? this.svg)
+    .rect(w, h)
+    .move(x + this.margin, y + this.margin);
+  }
+
+  /**
+   * Draw text centred at a position
+   * @param {string} s text string
+   * @param {number} top top edge
+   * @param {number} x x coord of centre
+   * @param {number} y y coord of centre
+   * @param {number} f font size
+   * @param {number} r rotation degrees. text is rotated about its centre
+   * @return {SVGRect} svg rectangle object
+   */
+  drawText(s, x, y, f, r = 0) {
+    return (this.group ?? this.svg)
+    .text(s)
+    .font({
+      family: 'sans-serif',
+      size: f,
+      anchor: 'middle'
+    })
+    .transform({
+      rotate: -90,
+      origin: "center center",
+      translate: [ x + this.margin, y + this.margin ]
+    });
+  }
+
+  /**
+   * Draw a polygon
+   * @param {object.<x:number,y:number}} polygon vertices
+   */
+  drawPolygon(vertices) {
+    const poly = [];
+    for (let i = 0; i < vertices.length; i++)
+      poly.push(`${vertices[i].x + this.margin},${vertices[i].y + this.margin}`);
+    return (this.group ?? this.svg).polygon(poly.join(" "));
   }
 }
 
@@ -243,6 +419,7 @@ class Room {
    */
   static PARAMS = {
     START_LEFT: 0,
+    START_TOP: 0,
     PLANK_WIDTH: 10,
     PLANK_LENGTH: 60,
     CUT_THICKNESS: 0.5,
@@ -268,21 +445,82 @@ class Room {
     }
 
     /**
-     * Array of horizontal edges that are all aligned
-     * left-right
+     * Array of horizontal edges
      * @member {HEdge[]}
      */
     this.hedges = [];
-    for (const hedge of template.hedges)
-      this.hedges.push(new HEdge(hedge));
+    if (template.hedges)
+      for (const hedge of template.hedges)
+        this.hedges.push(new HEdge(hedge));
+
+    /**
+     * List of columns, ordered left-right, each with a list of Planks
+     * @member {Column[]}
+     */
     this.columns = [];
-    for (const col of template.columns)
-      this.columns.push(new Column(col));
+    if (template.columns)
+      for (const col of template.columns)
+        this.columns.push(new Column(col));
+
+    /**
+     * Left edge of the bounding rect
+     * @member {number}
+     */
     this.leftmost = template.leftmost ?? Number.MAX_SAFE_INTEGER;
+
+    /**
+     * Right edge of the bounding rect
+     * @member {number}
+     */
     this.rightmost = template.rightmost ?? Number.MIN_SAFE_INTEGER;
+
+    /**
+     * Top edge of the bounding rect
+     * @member {number}
+     */
     this.topmost = template.topmost ?? Number.MAX_SAFE_INTEGER;
+
+    /**
+     * Bottom edge of the bounding rect
+     * @member {number}
+     */
     this.bottommost = template.bottommost ?? Number.MIN_SAFE_INTEGER;
-    console.log("Loaded", this);
+
+    /**
+     * List of partial (pre-cut) planks left in hand after
+     * the most recent recompute
+     * @member {Plank[]}
+     */
+    this.partials = [];
+    if (template.partials)
+      for (const plank of template.partials)
+        this.partials.push(new Plank(plank));
+
+    /**
+     * Total number of planks needed, computed on the fly during
+     * computation
+     * @member {number}
+     */
+    this.planksNeeded = template.planksNeeded ?? 0;
+
+    /**
+     * Total number of cuts needed, computed on the fly during
+     * computation
+     * @member {number}
+     */
+    this.cuts = template.cuts ?? 0;
+
+    /**
+     * Total waste, in cm of plank length, computed on the fly during
+     * computation
+     * @member {number}
+     */
+    //this.waste = template.waste ?? 0;
+
+    if (this.columns.length === 0) {
+      this.measure();
+      this.recomputeFloor();
+    }
   }
 
   /**
@@ -306,100 +544,229 @@ class Room {
     
       const p2 = this.vertices[(i + 1) % this.vertices.length];
       if (p1.y === p2.y) // Horizontal edge
-        this.hedges.push(new HEdge(Math.min(p1.x, p2.x), Math.max(p1.x, p2.x), p1.y));
+        this.hedges.push(
+          new HEdge({
+            left: Math.min(p1.x, p2.x),
+            right: Math.max(p1.x, p2.x),
+            y: p1.y
+          }));
+    }
+  }
+
+  /**
+   * Select a partial plank to start a new column with from the set of
+   * partials. The selection is based on minimising the number of cuts
+   * and waste.
+   */
+  selectPartial(cut_end, min_length = 0) {
+    let best = -1;
+    let bl = Number.MIN_SAFE_VALUE;
+    for (let i = 0; i < this.partials.length; i++) {
+      const partial = this.partials[i];
+      if (partial.cut_end == cut_end && partial.length > min_length) {
+        if (best < 0 || partial.length > bl) {
+          best = i;
+          bl = partial.length;
+        }
+      }
+    }
+    if (best < 0)
+      return undefined;
+
+    return this.partials.splice(best, 1)[0];
+  }
+
+  /**
+   * Clear all partials out of the partials list and
+   * from columns
+   */
+  clearPartials() {
+    this.partials = [];
+
+    for (const col of this.columns) {
+      for (let i = 0; i < col.planks.length; ) {
+        const plank = col.planks[i];
+        if (col.planks[i].permanent)
+          col.planks.splice(i, 1);
+        else
+          i++;
+      }
+    }
+  }
+
+  get waste() {
+    let columnage = 0;
+    for (const col of this.columns)
+      columnage += col.height;
+    return this.planksNeeded * this.PLANK_LENGTH - columnage;
+  }
+
+  /**
+   * Collect all permanent partials into the partials array, delete
+   * all other partials.
+   */
+  collectPermanentPartials() {
+    const nPartials = [];
+    for (const p of this.partials)
+      if (p.permanent)
+        nPartials.push(p);
+
+    for (const col of this.columns)
+      for (const plank of col.planks)
+        if (plank.permanent)
+          nPartials.push(plank);
+
+    for (const plank of nPartials)
+      plank.id = Plank.NEXT++;
+
+    this.partials = nPartials;
+  }
+
+  /**
+   * Remove a partial identified by UID. The partial might be resting in
+   * the partials list, or already employed in the layout.
+   * @param {number} uid unique id of the plank to remove
+   */
+  removePartial(uid) {
+    for (let i = 0; i < this.partials.length; i++) {
+      const plank = this.partials[i];
+      if (plank.uid === uid) {
+        this.partials.splice(i, 1);
+        return plank;
+      }
     }
 
-    //console.debug(`Leftmost ${leftmost} Rightmost ${rightmost}`);
-    //console.debug(`Topmost ${topmost} Bottommost ${bottommost}`);
+    for (const col of this.columns) {
+      for (let i = 0; i < col.planks.length; i++) {
+        const plank  = col.planks[i];
+        if (plank.uid === uid) {
+          col.planks.splice(i, 1);
+          return plank;
+        }
+      }
+    }
+
+    return undefined; // partial wasn't found
   }
 
   /**
    * Working left to right, create columns and then populate the
    * columns with planks
-   * @private
    */
-  columnise() {
+  recomputeFloor() {
     // Reset plank IDs
     Plank.NEXT = 1;
 
+    // Retain permanent partials, discard all others
+    this.collectPermanentPartials();
+
     let l = this.leftmost + this.START_LEFT; // left edge of current column
     const columns = [];
-    let planksNeeded = 0, cuts = 0, waste = 0;
-    let inHand;
+    this.columns = columns,
+    this.planksNeeded = 0,
+    //this.waste = 0,
+    this.cuts = 0;
+    // offset from the top of the column
+    let first_offset = this.START_TOP;
+    // Can we start the column with a partial?
+    let pickPartial = true;
+
     while (l < this.rightmost) {
-      const col = new Column(l, this.PLANK_WIDTH);
+      const col = new Column({ left: l, width: this.PLANK_WIDTH });
       columns.push(col);
       for (const hedge of this.hedges)
-        col.limit(hedge);
-    
-      //console.debug(col.toString());
-      let y = col.top; // place to put next plank
-      let h = col.height; // amt of this col to fill
-      let startedWith = this.PLANK_LENGTH;
-      if (inHand) {
-        col.planks.push(inHand);
-        h -= inHand.length;
-        inHand.left = l;
-        inHand.top = y;
-        y += inHand.length;
-        startedWith = inHand.length;
-        inHand = undefined;
+        col.clip(hedge);  
+      let y = col.top + first_offset; // place to put next plank
+      let h = col.height - first_offset; // amt of this col to fill
+      first_offset = 0;
+      let partial;
+      if (pickPartial) {
+        partial = this.selectPartial(">");
+        if (partial) {
+          col.planks.push(partial);
+          h -= partial.length;
+          partial.left = l;
+          partial.top = y;
+          y += partial.length;
+        }
       }
       let fullPlanks = 0;
       while (h > this.PLANK_LENGTH) {
-        col.planks.push(new Plank(l, y, this.PLANK_WIDTH, this.PLANK_LENGTH));
+        col.planks.push(new Plank({
+          left: l, top: y,
+          width: this.PLANK_WIDTH, length: this.PLANK_LENGTH
+        }));
         y += this.PLANK_LENGTH;
         fullPlanks++;
         h -= this.PLANK_LENGTH;
       }
-
+      
       // If we need to cut a plank, and that would result in a cut that's
       // too short, and we started this column with a cut, go back
       // and try again starting the column with a full plank.
-      // SMELL: alternatively, cut the inHand plank in three?
-      if (h > 0 && h < this.MIN_PLANK_LENGTH
-          && startedWith < this.PLANK_LENGTH) {
-        waste += startedWith;
-        columns.pop();
+      // SMELL: alternatively, cut the partial plank in three?
+      if (h > 0 && h < this.MIN_PLANK_LENGTH && partial) {
+        this.partials.push(partial);
+        columns.pop(); // try this column again
+        pickPartial = false;
         continue;
       }
 
-      //console.debug(`\t${fullPlanks} full planks`);
-      planksNeeded += fullPlanks;
+      this.planksNeeded += fullPlanks;
 
       if (h > 0) {
-        planksNeeded++;
-        cuts++;
+        // We haven't filled the column with whole planks, so we need
+        // to cut a new plank. Part of the plank will be used in this
+        // column, and the other part added to the partials for future
+        // columns.
+
+        // See if we've got a partial that might do
+        if (pickPartial) {
+          const base_partial = this.selectPartial("<");
+          if (base_partial)
+            if (base_partial.length >= h) {
+              console.log("Found a base partial");
+            } else
+              this.partials.push(base_partial); // put it back
+        }
+
+        this.planksNeeded++;
+        this.cuts++;
 
         // Make the length at the bottom of this column
-        const cp = new Plank(l, y, this.PLANK_WIDTH, h);
+        const cp = new Plank({
+          left: l, top: y,
+          width: this.PLANK_WIDTH, length: h,
+          cut_end: "<"
+        });
         y += h;
         col.planks.push(cp);
       
-        // Deal with the excess
+        // Deal with the excess by creating a partial
         const over = this.PLANK_LENGTH - h - this.CUT_THICKNESS;
-        waste += this.CUT_THICKNESS;
+        //this.waste += this.CUT_THICKNESS;
         if (over > this.MIN_PLANK_LENGTH) {
           // save the rest of the cut plank
-          inHand = new Plank(l, y, this.PLANK_WIDTH, over, cp.id);
-          inHand.TB = ">";
-          cp.TB = "<";
+          const partial = new Plank({
+            left: l, top: y,
+            width: this.PLANK_WIDTH, length: over,
+            id: cp.id, cut_end: ">"
+          });
+          this.partials.push(partial);
           //console.debug(`\t+1 cut to ${h}, ${over.toFixed(1)}cm left over`);
         } else {
           // waste the rest of the cut plank
           //console.debug(`\t+1 cut to ${h}, ${over}cm wasted`);
-          cp.TB = ">";
-          waste += over;
+          //this.waste += over;
         }
       }
     
       l += this.PLANK_WIDTH;
+      pickPartial = true;
     }
-    $("#planksNeeded").text(planksNeeded);
-    $("#cuts").text(cuts);
-    $("#waste").text(waste.toFixed(1));
 
-    this.columns = columns;
+    //for (const plank of this.partials)
+    //  this.waste += plank.length;
   }
 
   /**
@@ -412,7 +779,11 @@ class Room {
     console.debug("Shuffling");
     // collect equal length columns into bins
     const bins = {};
-    for (const col of this.columns) {
+    for (let i = 0; i < this.columns.length; i++) {
+      if (this.START_TOP !== 0 && i === 0)
+        // Don't move col[0] if START_TOP is non-zero
+        continue;
+      const col = this.columns[i];
       if (!bins[col.height])
         bins[col.height] = [];
       bins[col.height].push(col);
@@ -437,7 +808,7 @@ class Room {
     }
 
     // Renumber the planks
-    this.columns.sort((a, b) => {
+/*    this.columns.sort((a, b) => {
       return (a.left < b.left) ? -1 : (a.left > b.left) ? 1 : 0;
     });
 
@@ -451,6 +822,7 @@ class Room {
         plank.id = remap[plank.id];
       }
     }
+*/
   }
 
   /**
@@ -463,15 +835,15 @@ class Room {
     const cuts = [];
     for (const col of this.columns) {
       for (const plank of col.planks) {
-        if (plank.TB != "") {
+        if (plank.cut_end != "") {
           if (!cuts[plank.id])
             cuts[plank.id] = {};
           let cut;
-          if (plank.TB == "<")
+          if (plank.cut_end == "<")
             cut = `${plank.id}< ${plank.length.toFixed(1)}`;
           else
             cut = `${plank.length.toFixed(1)} ${plank.id}>`;
-          cuts[plank.id][plank.TB] = cut;
+          cuts[plank.id][plank.cut_end] = cut;
         }
       }
     }
@@ -479,76 +851,93 @@ class Room {
   }
 
   /**
-   * Repaint the canvas with the given columns
+   * Redraw the room
    * @param {Surface} surf drawing context
    */
-  repaint(surf) {
+  draw(surf) {
     surf.clear();
 
     if (this.vertices.length < 3)
       // Need at least 3 vertices to make a rectilinear room.
       return;
 
-    surf.ctx.fillStyle = "rgba(255,165,0,50)";
-    surf.ctx.beginPath();
-    surf.moveTo(this.vertices[0].x, this.vertices[0].y);
-    for (let i = 1; i < this.vertices.length; i++)
-      surf.lineTo(this.vertices[i].x, this.vertices[i].y);
-
-    surf.lineTo(this.vertices[0].x, this.vertices[0].y);
-    surf.ctx.closePath();
-    surf.ctx.fill();
+    // Draw the floor plan
+    surf.drawPolygon(this.vertices)
+    .fill("none")
+    .stroke("rgba(255,165,0,50)");
 
     for (const col of this.columns)
       col.draw(surf);
-
+   
     // Dump the cutting schedule
     const sched = this.cuttingSchedule()
           .filter(cut => typeof cut !== "undefined")
           .map(cut => `${cut["<"]} | ${cut[">"]}`);
     $("#schedule").html(sched.join("<br>"));
-  }
 
-  /**
-   * Recompute the layout and redisplay. Used when parameters change
-   * (though the floor doesn't)
-   */
-  recomputeFloor() {
-    // Construct and fill columns with planks
-    this.columnise();
+    // Add computed fields
+    $("#planksNeeded").text(this.planksNeeded);
+    $("#cuts").text(this.cuts);
+    $("#waste").text(this.waste.toFixed(1));
+
+    // Display partials
+    $("#partials").empty();
+
+    function showPartial(plank, room) {
+      const $html = plank.html();
+      $html.find("button").on("click", function() {
+        const uid = $(this).data("uid");
+        room.removePartial(uid);
+        $(`[data-uid=${uid}]`).parent().remove();
+        if ($("#partials").children().length < 2)
+          $("#clear_partials").hide();
+      });
+      $("#partials").append($html);
+    }
+
+    for (const plank of this.partials)
+      showPartial(plank, this);
+
+    for (const col of this.columns)
+      for (const plank of col.planks)
+        if (plank.permanent)
+          showPartial(plank, this);
+
+    if ($("#partials").children().length < 2)
+      $("#clear_partials").hide();
+    else
+      $("#clear_partials").show();
   }
 }
 
 let room;
-const surf = new Surface($("#floor")[0]);
+const surf = new Surface($("#svg"));
 
 function loadRoom(file) {
   console.log(`Loading ${file}`);
   return $.get(file, data => {
     room = new Room(data);
-    if (room.columns.length === 0) {
-      room.measure();
-      room.recomputeFloor();
-    }
     surf.resize(
       room.leftmost, room.topmost,
-      room.rightmost - room.leftmost, room.bottommost - room.topmost);
-    room.repaint(surf);
+      room.rightmost - room.leftmost, room.bottommost - room.topmost,
+      room.PLANK_WIDTH);
+    room.draw(surf);
     return room;
-  });
+  })
+  .catch((res, simple, e) => alert(e.message));
 }
 
 $("#try_again")
 .on("click", () => {
   room.recomputeFloor();
-  room.repaint(surf);
+  room.draw(surf);
 });
 
 $("#shuffle")
 .on("click", () => {
   // shuffle columns to avoid staircases
   room.shuffle();
-  room.repaint(surf);
+  room.draw(surf);
 });
 
 $("#save_room")
@@ -565,12 +954,25 @@ $("#save_room")
   $("body").remove(a);
 });
 
+$("#save_svg")
+.on("click", () => {
+  // Creating a blob object from non-blob data using the Blob constructor
+  const blob = surf.blob();
+  const url = URL.createObjectURL(blob);
+  const a = $("<a></a>");
+  a[0].href = url;
+  a[0].download = "room.svg";
+  $("body").append(a);
+  a[0].click();
+  $("body").remove(a);
+});
+
 for (const key of Object.keys(Room.PARAMS)) {
   $(`#${key}`).on("change", function() {
-    //console.debug(this.id,this.value);
-    room[this.id] = Number(this.value);
+    console.debug(this.id,this.value);
+    room[this.id] = parseFloat(this.value);
     room.recomputeFloor();
-    room.repaint(surf);
+    room.draw(surf);
   });
 }
 
@@ -578,6 +980,27 @@ $("#room_file").on("change", function () {
   if (this.files[0] == undefined)
     return;
   loadRoom(this.files[0].name);
+});
+
+$("#add_partial").on("click", () => $("#partial_dialog").dialog());
+
+$("#submit_partial").on("click", () => {
+  $("#partial_dialog").dialog("close");
+  const partial = new Plank({
+    width: room.PLANK_WIDTH,
+    length: Number($("#partial_length").val()),
+    cut_end: $("#partial_cut_end").val(),
+    permanent: true
+  });
+  room.partials.push(partial);
+  room.recomputeFloor();
+  room.draw(surf);
+});
+
+$("#clear_partials").on("click", () => {
+  room.clearPartials();
+  $("#partials").empty();
+  $("#clear_partials").hide();
 });
 
 const room_file = $("#room_file")[0];

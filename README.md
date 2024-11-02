@@ -12,22 +12,30 @@ the polygon of the floor area, oriented so the boards will run top to
 bottom. Note there is no automatic allowance for expansion, it's up to
 you to size the room taking that into account. The app will try to
 minimise the number of horizontal cuts, but vertical cuts (along the
-length of the board) are your problem
+length of the board) are your problem.
 
-Here's an example room:
+Here's a trivial example (1.25m x 3.1m) room:
 ```
 {
   "vertices": [
     { "x": 0, "y": 0, "id": "top left corner" },
-    { "x": 100, "y": 0, "id": "top right corner" },
-    { "x": 100, "y": 100, "id": "bottom right corner" },
-    { "x": 0, "y": 100, "id": "bottom left corner" }
+    { "x": 125, "y": 0, "id": "top right corner" },
+    { "x": 125, "y": 310, "id": "bottom right corner" },
+    { "x": 0, "y": 310, "id": "bottom left corner" }
   ]
 }
 ```
-Once you have worked out a suitable layout, you can save the result and
-reload it later.
+The user interface is verbose and explains the layout options you have. 
+There's a more realistic [example room](example_room.json) included with
+the package.
 
-The package also includes a minimal web server that you can use to
-serve local files, if you don't have a web host handy.
+## Web server
+You can use the package direct from github pages. Alternatively, the package
+also includes a minimal web server that you can use to
+serve local files, if you don't have a web host handy. Run it using:
+```
+$ node server.js
+```
+It will start on port 9094 by default. The `-p` option can be used to change
+that. In the browser, visit `localhost:9094` to load the app.
 

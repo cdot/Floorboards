@@ -4,56 +4,89 @@
     <meta charset="UTF-8" />
     <title>Floorboards</title>
     <script src="./node_modules/jquery/dist/jquery.min.js"></script>
+    <script src="./node_modules/jquery-ui/dist/jquery-ui.min.js"></script>
+    <script src="./node_modules/@svgdotjs/svg.js/dist/svg.min.js"></script>
     <script src="./floorboards.js" type="module"></script>
+    <link href="./node_modules/jquery-ui/dist/themes/pepper-grinder/jquery-ui.min.css" rel="stylesheet" type="text/css">
     <style>
-      body { font-family: Verdana, Arial, Helvetica, sans-serif; }
+      body { font-family: sans-serif; font-size: 12pt; }
+      h1 { font-size: 14pt; }
+      .dialog { display: none; }
+      input[type="number"] {
+        width: 4em;
+      }
     </style>
   </head>
   <body>
-    <div>
-      <p><em>
-          Upload a room file. At minimum this is a JSON file containing
-          the layout of the room (an array of vertices). You can save a
-          layout to a room file, and reload it later.
-      </em></p>
-      <label for="room_file"><b>Room file</b></label>
+    <div title="At minimum this is a JSON file containing the layout of the room (an array of vertices). You can save a layout to a room file, and reload it later.">
+      <h1>Upload your room</h1>
+      <label for="room_file">Room file</label>
       <input type="file" id="room_file" />
+    <div>
+      <h1>Describe your planks</h1>
+      <label for="PLANK_WIDTH">Plank width</label>
+      <input id="PLANK_WIDTH" type="number" min="0" value="12.5"></input>
+      <label for="PLANK_LENGTH">Plank length</label>
+      <input id="PLANK_LENGTH" type="number" min="0" value="91.5"></input>
     </div>
     <div>
-      <p><em>
-          Describe the planks you will be using. Dimensions are all in cm.
-          Cut thickness is the thickness of a saw cut. Wherever possible, planks shorter than Min plank length will not be used (it's unavoidable sometimes).
-      </em></p>
-      <label for="PLANK_WIDTH"><b>Plank width</b></label>
-      <input id="PLANK_WIDTH" type="number" value="12.5"></input>
-      <label for="PLANK_LENGTH"><b>Plank length</b></label>
-      <input id="PLANK_LENGTH" type="number" value="91.5"></input>
+      <h1>Constraints</h1>
+      <span title="Thickness of a saw cut.">
+        <label for="CUT_THICKNESS">Cut thickness</label>
+        <input id="CUT_THICKNESS" type="number" min="0" value="0.26"></input>
+      </span>
+      <span title="Try to make all planks longer than this">
+        <label for="MIN_PLANK_LENGTH">Min plank length</label>
+        <input id="MIN_PLANK_LENGTH" type="number" min="0" value="10"></input>
+      </span>
+      <span title="You can start the planking at an offset from the left edge of the room. A positive value will leave a gap between the leff twall and the first plank. A negative value will mean you'll have to trim the first row of planks lengthways. The offset should never be more than &plusmn; the width of a plank.">
+        <label for="START_LEFT">Start left</label>
+        <input id="START_LEFT" type="number" value="10.5"></input>
+      </span>
+      <span title="You can start the planking at an offset from the top of the first column. The offset should never be more than the length of one plank. If the offset is non-zero, the column won't be moved when you shuffle.">
+        <label for="START_TOP">Start top</label>
+        <input id="START_TOP" type="number" min="0" value="0"></input>
+      </span>
     </div>
-    <div>
-      <label for="CUT_THICKNESS"><b>Cut thickness</b></label>
-      <input id="CUT_THICKNESS" type="number" value="0.26"></input>
-      <label for="MIN_PLANK_LENGTH"><b>Min plank length</b></label>
-      <input id="MIN_PLANK_LENGTH" type="number" value="10"></input>
-    </div>
-    <div>
-      <p><em>
-          You can start the planking at an offset from the left edge of the
-          room. A positive value will leave a gap between the wall and the
-          first plank. A negative value will mean you'll have to trim the
-          first row of planks lengthways.
-          The offset should never be more than the width of a plank.
-      </em></p>
-      <label for="START_LEFT"><em>Start left</em></label>
-      <input id="START_LEFT" type="number" value="10.5"></input>
+    <div title="If you have pre-cut planks in hand, you can add them here. Once the layout has been calculated, remaining lengths will be shown here too, but they won't be used next time the layout is calculated.">
+      <h1>Partial planks</h1>
+      <button id="add_partial">Add pre-cut plank</button>
+      <div id="partials">
+      </div>
+      <button id="clear_partials">Remove all pre-cut planks</button>
     </div>
     <hr />
-    <p>
-      <span id="planksNeeded">0</span> planks are needed. There will be <span id="cuts">0</span> cuts, and a total wastage of <span id="waste">0</span>cm. "<" planks have their cut edges at the bottom, ">" planks at the top. If you don't like the layout you can <button id="shuffle">shuffle</button> the columns.
-    </p>
-    <canvas id="floor"></canvas>
-    <div id="schedule"></div>
+    <p><em>
+      <span id="planksNeeded">0</span> planks are needed.
+      There will be <span id="cuts">0</span> cuts,
+      and a total wastage of <span id="waste">0</span>.
+      "&lt;" planks have their cut edges at the bottom, "&gt;" planks
+      at the top.
+      If you don't like the layout you can
+      <button id="shuffle">shuffle</button> the columns.
+    </em></p>
+    <div id="svg"></div>
+    <div title="Each cut is described in terms of the final length of the top and bottom parts of the plank.">
+      <h1>Cuts</h1>
+      <div id="schedule"></div>
+    </div>
     <div>     
-      <button id="save_room">Save room</button>
+      <button id="save_room" title="Save the room to a file so you can reload it later">Save room</button>
+      <button id="save_svg" title="Save an SVG file of the drawing. This can be shared or loaded into a vector editor such as Inkscape.">Save SVG</button>
+    </div>
+    <div id="partial_dialog" class="dialog" title="Add partial plank">
+      <div>
+        <label for="partial_length">Partial length</label>
+        <input id="partial_length" type="number" min="1" value="20" />
+      </div>
+      <div>
+        <label for="partial_cut_end">Cut end</label>
+        <select id="partial_cut_end">
+          <option value=">">top</option>
+          <option value="<">bottom</option>
+        </select>
+      </div>
+      <button id="submit_partial">Add partial plank</button>
     </div>
   </body>
 </html>
