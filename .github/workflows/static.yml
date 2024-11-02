@@ -22,7 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
+  # Single deploy job since we're just deploying. Don't need to
+  # use npm because all resources come from CDN
   deploy:
     environment:
       name: github-pages

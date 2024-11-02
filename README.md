@@ -29,13 +29,11 @@ The user interface is verbose and explains the layout options you have.
 There's a more realistic [example room](example_room.json) included with
 the package.
 
+[Try it here](https://cdot.github.io/Floorboards/).
+
 ## Web server
-You can use the package direct from github pages. Alternatively, the package
-also includes a minimal web server that you can use to
-serve local files, if you don't have a web host handy. Run it using:
-```
-$ node server.js
-```
-It will start on port 9094 by default. The `-p` option can be used to change
-that. In the browser, visit `localhost:9094` to load the app.
+You can use the package direct from github pages through the link
+above, or host it on your own web server. Alternatively, the package
+also includes a tiny web server that you can use to serve local files,
+if you don't have a web host handy.
 
