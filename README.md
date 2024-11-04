@@ -29,18 +29,10 @@ The user interface is verbose and explains the layout options you have.
 There's a more realistic [example room](example_room.json) included with
 the package.
 
-[Try it here](https://cdot.github.io/Floorboards/).
+[Try it here](https://cdot.github.io/Floorboards/?room=example_room.json).
 
 # Web server
 You can use the package direct from github pages through the link
 above, or host it on your own web server. Alternatively, the package
 also includes a tiny web server that you can use to serve local files,
 if you don't have a web host handy.
-
-<iframe
-  id="example"
-  title="example_room"
-  width="300"
-  height="200"
-  src="https://cdot.github.io/Floorboards/?room=example_room.json">
-</iframe>
