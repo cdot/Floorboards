@@ -808,7 +808,7 @@ class Room {
     }
 
     // Renumber the planks
-/*    this.columns.sort((a, b) => {
+    this.columns.sort((a, b) => {
       return (a.left < b.left) ? -1 : (a.left > b.left) ? 1 : 0;
     });
 
@@ -822,7 +822,6 @@ class Room {
         plank.id = remap[plank.id];
       }
     }
-*/
   }
 
   /**
@@ -910,6 +909,11 @@ class Room {
   }
 }
 
+const url_params = {};
+window.location.href.replace(
+  /[?&]+([^=&]+)=([^&]*)/gi,
+  (m, key, value) => url_params[key] = value);
+
 let room;
 const surf = new Surface($("#svg"));
 
@@ -927,19 +931,21 @@ function loadRoom(file) {
   .catch((res, simple, e) => alert(e.message));
 }
 
+// Try the layout again
 $("#try_again")
 .on("click", () => {
   room.recomputeFloor();
   room.draw(surf);
 });
 
+// shuffle columns to avoid staircases
 $("#shuffle")
 .on("click", () => {
-  // shuffle columns to avoid staircases
   room.shuffle();
   room.draw(surf);
 });
 
+// Save the room by downloadng a JSON file
 $("#save_room")
 .on("click", () => {
   // Creating a blob object from non-blob data using the Blob constructor
@@ -954,9 +960,9 @@ $("#save_room")
   $("body").remove(a);
 });
 
+// Save an SVG file
 $("#save_svg")
 .on("click", () => {
-  // Creating a blob object from non-blob data using the Blob constructor
   const blob = surf.blob();
   const url = URL.createObjectURL(blob);
   const a = $("<a></a>");
@@ -967,6 +973,7 @@ $("#save_svg")
   $("body").remove(a);
 });
 
+// Set up change handlers for the various constraints
 for (const key of Object.keys(Room.PARAMS)) {
   $(`#${key}`).on("change", function() {
     console.debug(this.id,this.value);
@@ -976,16 +983,24 @@ for (const key of Object.keys(Room.PARAMS)) {
   });
 }
 
-$("#room_file").on("change", function () {
+const $room_file = $("#room_file");
+
+// Load a new room file
+$room_file
+.on("change", function () {
   if (this.files[0] == undefined)
     return;
   loadRoom(this.files[0].name);
 });
 
-$("#add_partial").on("click", () => $("#partial_dialog").dialog());
+// Invoke dialog to add a pre-cut plank
+$("#add_partial")
+.on("click", () => $("#partial_dialog").dialog());
 
+// Submit a new pre-cut plank from the dialog
 $("#submit_partial").on("click", () => {
-  $("#partial_dialog").dialog("close");
+  $("#partial_dialog")
+  .dialog("close");
   const partial = new Plank({
     width: room.PLANK_WIDTH,
     length: Number($("#partial_length").val()),
@@ -997,12 +1012,20 @@ $("#submit_partial").on("click", () => {
   room.draw(surf);
 });
 
-$("#clear_partials").on("click", () => {
+// Clear list of partial planks (including pre-cut)
+$("#clear_partials")
+.on("click", () => {
   room.clearPartials();
   $("#partials").empty();
   $("#clear_partials").hide();
 });
 
-const room_file = $("#room_file")[0];
-if (room_file.files[0])
-  loadRoom(room_file.files[0].name);
+if (url_params.room)
+  loadRoom(url_params.room);
+else {
+  if ($room_file[0].files[0])
+    loadRoom($room_file.files[0].name);
+  else {
+    loadRoom("example_room.json");
+  }
+}

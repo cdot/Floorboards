@@ -46,7 +46,7 @@ console.debug(
   `Starting server on port ${options.port}`);
 
 const express = new Express();
-express.use(Cors());
+//express.use(Cors());
 express.use(Express.static(__dirname));
 const cmdRouter = Express.Router();
 
