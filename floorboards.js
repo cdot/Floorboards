@@ -1,4 +1,33 @@
 /* Copyright 2024 Crawford Currie */
+// See README.md
+
+/*
+ * Problem: given a rectilinear room and an unlimited supply of
+ * interlocking boards all the same size, some of which may be pre-cut, lay
+ * the boards out to meet the following constraints:
+ * 1. Respect the interlocking, so cut ends always butt the edges of
+ * the room poly.
+ * 2. Minimum wastage of board length
+ * 3. Minimum number of cross-cuts
+ * 4. Minimise plank joins lining up in adjacent plank runs
+ * 5. Minimise "staircase effects", where lines of planks have
+ * the same offset from each other.
+ * 7. Support starting the planking at an arbitrary offset within
+ * the room.
+ *
+ * Approach:
+ * 1. Describe the room as a polygon using a set of vertices.
+ * 2. Divide the room into a set of equal-width columns.
+ * 3. Limit the height of each column by examining where it crosses
+ *    the room poly.
+ * 4. Starting with the left column, lay planks until the column is full.
+ *    Where the last plank crosses the end of the column, cut the plank and
+ *    add the cut part to the set of pre-cut planks.
+ * 5. Repeat 4 until the room is full.
+ *
+ * Post-layout, allow the random shuffling of columns to minimise
+ * staircase and matching seam problems (based on visual feedback).
+ */
 
 /**
  * Class of horizontal edges. We're only interested in this subset of
@@ -347,7 +376,7 @@ class Surface {
 
   /**
    * Open a group. Drawing operations will be added to the
-   * group until it is closed
+   * group until it is closed.
    */
   openGroup() {
     this.group = this.svg.group();
@@ -411,6 +440,9 @@ class Surface {
   }
 }
 
+/**
+ * A room, and the planks required to.... plank it.
+ */
 class Room {
 
   /**
@@ -917,18 +949,25 @@ window.location.href.replace(
 let room;
 const surf = new Surface($("#svg"));
 
-function loadRoom(file) {
-  console.log(`Loading ${file}`);
-  return $.get(file, data => {
-    room = new Room(data);
-    surf.resize(
-      room.leftmost, room.topmost,
-      room.rightmost - room.leftmost, room.bottommost - room.topmost,
-      room.PLANK_WIDTH);
-    room.draw(surf);
-    return room;
-  })
+function loadRoom(data) {
+  room = new Room(data);
+  surf.resize(
+    room.leftmost, room.topmost,
+    room.rightmost - room.leftmost, room.bottommost - room.topmost,
+    room.PLANK_WIDTH);
+  room.draw(surf);
+}
+
+function getRoom(url) {
+  console.log(`Getting ${url}`);
+  $.get(url, data => loadRoom(data))
   .catch((res, simple, e) => alert(e.message));
+}
+
+function uploadRoom(file) {
+  const reader = new FileReader();
+  reader.addEventListener('load', e => loadRoom(JSON.parse(e.target.result)));
+  reader.readAsText(file);
 }
 
 // Try the layout again
@@ -945,7 +984,7 @@ $("#shuffle")
   room.draw(surf);
 });
 
-// Save the room by downloadng a JSON file
+// Save the room by downloading a JSON file
 $("#save_room")
 .on("click", () => {
   // Creating a blob object from non-blob data using the Blob constructor
@@ -990,7 +1029,7 @@ $room_file
 .on("change", function () {
   if (this.files[0] == undefined)
     return;
-  loadRoom(this.files[0].name);
+  uploadRoom(this.files[0]);
 });
 
 // Invoke dialog to add a pre-cut plank
@@ -1020,12 +1059,12 @@ $("#clear_partials")
   $("#clear_partials").hide();
 });
 
-if (url_params.room)
-  loadRoom(url_params.room);
+if (url_params.room) {
+  getRoom(url_params.room);
+}
 else {
   if ($room_file[0].files[0])
-    loadRoom($room_file.files[0].name);
-  else {
-    loadRoom("example_room.json");
-  }
+    uploadRoom($room_file[0].files[0]);
+  else
+    getRoom("example_room.json");
 }
