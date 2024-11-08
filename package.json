@@ -5,11 +5,20 @@
     "description": "Floorboards server",
     "main": "main.js",
     "scripts": {
-        "run": "node server.js"
+        "server": "node server.js",
+        "lint": "eslint *.js -f unix",
+        "doc": "jsdoc -c jsdoc_config.json *.js"
     },
     "dependencies": {
         "cors": "^2.8.5",
         "express": "^4.21.1",
         "posix-getopt": "^1.2.1"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.14.0",
+        "docdash": "^2.0.2",
+        "eslint": "^9.14.0",
+        "eslint-formatter-unix": "^8.40.0",
+        "jsdoc": "^4.0.4"
     }
 }

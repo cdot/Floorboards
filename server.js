@@ -1,10 +1,12 @@
 /*Copyright (C) 2024 Crawford Currie http://c-dot.co.uk*/
+/* eslint-env node */
+/* global process */
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 import Path from "path";
 const __dirname = Path.dirname(__filename);
 import getopt from "posix-getopt";
-import Cors from "cors";
+//import Cors from "cors";
 import Express from "express";
 import HTTP from "http";
 

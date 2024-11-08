@@ -1,4 +1,6 @@
 /* Copyright 2024 Crawford Currie */
+/* eslint-env browser, jquery */
+/* global $, SVG */
 // See README.md
 
 /*
@@ -6,27 +8,35 @@
  * interlocking boards all the same size, some of which may be pre-cut, lay
  * the boards out to meet the following constraints:
  * 1. Respect the interlocking, so cut ends always butt the edges of
- * the room poly.
+ *    the room poly.
  * 2. Minimum wastage of board length
  * 3. Minimum number of cross-cuts
  * 4. Minimise plank joins lining up in adjacent plank runs
  * 5. Minimise "staircase effects", where lines of planks have
- * the same offset from each other.
- * 7. Support starting the planking at an arbitrary offset within
- * the room.
+ *    the same offset from each other.
+ * 7. Support starting the planking at an arbitrary offset within the
+ *    room.
  *
  * Approach:
  * 1. Describe the room as a polygon using a set of vertices.
  * 2. Divide the room into a set of equal-width columns.
  * 3. Limit the height of each column by examining where it crosses
  *    the room poly.
- * 4. Starting with the left column, lay planks until the column is full.
- *    Where the last plank crosses the end of the column, cut the plank and
- *    add the cut part to the set of pre-cut planks.
+ * 4. Starting with the left column, and preferring pre-cut planks,
+ *    lay planks until the column is full.  Where the last plank
+ *    crosses the end of the column, cut the plank and add the cut
+ *    part to the set of pre-cut planks.
  * 5. Repeat 4 until the room is full.
  *
  * Post-layout, allow the random shuffling of columns to minimise
  * staircase and matching seam problems (based on visual feedback).
+ *
+ * As you can see, the algorithm is quite simple. In the course of
+ * this work I explored several options for more sophisticated
+ * approaches using cost functions and stochastic algorithms. However
+ * I abandoned that when the need to put saw to wood became paramount,
+ * and I realised that visual feedback was a perfectly acceptable way
+ * to handle the problem.
  */
 
 /**
@@ -36,7 +46,7 @@
 class HEdge {
 
   /*
-   * @param {object} attrs attributes
+   * @param {HEdge|object} attrs attributes
    * @param {number} attrs.left end of the edge
    * @param {number} attrs.right right end of the edge
    * @param {number} attrs.y level of the edge
@@ -75,7 +85,7 @@ class Plank {
   static UID = 0;
 
   /**
-   * @param {object} attrs plank attributes
+   * @param {Plank|object} attrs plank attributes
    * @param {number} attrs.left left of the plank
    * @param {number} attrs.top top of the plank
    * @param {number} attrs.width width of the plank
@@ -197,12 +207,12 @@ class Plank {
 class Column {
 
   /**
-   * @param {object} attrs attributes (might be another Column)
+   * @param {Column|object} attrs attributes
    * @param {number} attrs.width width of the column
    * @param {number} attrs.left left edge of the column
    * @param {number} attrs.top top of the column
    * @param {number} attrs.bottom bottom of the column
-   * @param {Plank} attrs.planks planks in the column
+   * @param {Plank[]} attrs.planks planks in the column
    */
   constructor(attrs = {}) {
     /**
@@ -422,7 +432,7 @@ class Surface {
       anchor: 'middle'
     })
     .transform({
-      rotate: -90,
+      rotate: r,
       origin: "center center",
       translate: [ x + this.margin, y + this.margin ]
     });
@@ -430,7 +440,7 @@ class Surface {
 
   /**
    * Draw a polygon
-   * @param {object.<x:number,y:number}} polygon vertices
+   * @param {object.<x:number,y:number>} polygon vertices
    */
   drawPolygon(vertices) {
     const poly = [];
@@ -617,7 +627,6 @@ class Room {
 
     for (const col of this.columns) {
       for (let i = 0; i < col.planks.length; ) {
-        const plank = col.planks[i];
         if (col.planks[i].permanent)
           col.planks.splice(i, 1);
         else
@@ -858,9 +867,10 @@ class Room {
 
   /**
    * Format the cutting schedule. The schedule is returned as an array
-   * of objects, each being a pair of strings, one for the bottom end of
-   * the plank and the other for the top end.
-   * @return {{"<":string,">":string}[]} cutting schedule
+   * of objects, each being object.<"<":string,">":string>, where "<"
+   * indicates the cut end is the bottom end of the plank and ">" is
+   * the top end. Only one will ever be defined.
+   * @return {object[]} cutting schedule
    */
   cuttingSchedule() {
     const cuts = [];
@@ -947,8 +957,13 @@ window.location.href.replace(
   (m, key, value) => url_params[key] = value);
 
 let room;
+const $room_file = $("#room_file");
 const surf = new Surface($("#svg"));
 
+/**
+ * Load a room from an object of room data built from JSON
+ * @param {object} data room data, as dumped by JSON.stringify(Room)
+ */
 function loadRoom(data) {
   room = new Room(data);
   surf.resize(
@@ -958,33 +973,41 @@ function loadRoom(data) {
   room.draw(surf);
 }
 
+/**
+ * Load a room from a URL containing JSON
+ * @param {string} url to get
+ */
 function getRoom(url) {
   console.log(`Getting ${url}`);
   $.get(url, data => loadRoom(data))
   .catch((res, simple, e) => alert(e.message));
 }
 
+/**
+ * Load a room from a local file containing JSON
+ * @param {File} file the local File to read
+ */
 function uploadRoom(file) {
   const reader = new FileReader();
   reader.addEventListener('load', e => loadRoom(JSON.parse(e.target.result)));
   reader.readAsText(file);
 }
 
-// Try the layout again
+// UI handler: Try the layout again
 $("#try_again")
 .on("click", () => {
   room.recomputeFloor();
   room.draw(surf);
 });
 
-// shuffle columns to avoid staircases
+// UI handler: Shuffle columns to avoid staircases
 $("#shuffle")
 .on("click", () => {
   room.shuffle();
   room.draw(surf);
 });
 
-// Save the room by downloading a JSON file
+// UI handler: Save the room by downloading a JSON file
 $("#save_room")
 .on("click", () => {
   // Creating a blob object from non-blob data using the Blob constructor
@@ -999,7 +1022,7 @@ $("#save_room")
   $("body").remove(a);
 });
 
-// Save an SVG file
+// UI handler: Save an SVG file
 $("#save_svg")
 .on("click", () => {
   const blob = surf.blob();
@@ -1012,7 +1035,7 @@ $("#save_svg")
   $("body").remove(a);
 });
 
-// Set up change handlers for the various constraints
+// UI handlers: Set up change handlers for the various constraint inputs
 for (const key of Object.keys(Room.PARAMS)) {
   $(`#${key}`).on("change", function() {
     console.debug(this.id,this.value);
@@ -1022,9 +1045,7 @@ for (const key of Object.keys(Room.PARAMS)) {
   });
 }
 
-const $room_file = $("#room_file");
-
-// Load a new room file
+// UI handler: Load a new room file
 $room_file
 .on("change", function () {
   if (this.files[0] == undefined)
@@ -1032,11 +1053,11 @@ $room_file
   uploadRoom(this.files[0]);
 });
 
-// Invoke dialog to add a pre-cut plank
+// UI handler: Invoke dialog to add a pre-cut plank
 $("#add_partial")
 .on("click", () => $("#partial_dialog").dialog());
 
-// Submit a new pre-cut plank from the dialog
+// UI handler: Submit a new pre-cut plank from the dialog
 $("#submit_partial").on("click", () => {
   $("#partial_dialog")
   .dialog("close");
@@ -1051,7 +1072,7 @@ $("#submit_partial").on("click", () => {
   room.draw(surf);
 });
 
-// Clear list of partial planks (including pre-cut)
+// UI handler: Clear list of partial planks (including pre-cut)
 $("#clear_partials")
 .on("click", () => {
   room.clearPartials();
@@ -1059,12 +1080,14 @@ $("#clear_partials")
   $("#clear_partials").hide();
 });
 
-if (url_params.room) {
+// if ?url= is given, load from url
+if (url_params.room)
   getRoom(url_params.room);
-}
-else {
-  if ($room_file[0].files[0])
-    uploadRoom($room_file[0].files[0]);
-  else
-    getRoom("example_room.json");
-}
+
+// Otherwise if the room file input has a value
+else if ($room_file[0].files[0])
+  uploadRoom($room_file[0].files[0]);
+
+// Otherwise load a simple example
+else
+  getRoom("example_room.json");

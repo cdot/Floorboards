@@ -1,0 +1,9 @@
+{
+  "opts": {
+    "destination": "doc",
+    "template": "node_modules/docdash",
+    "verbose": true,
+    "recurse": true
+  },
+  "plugins": ["plugins/markdown"]
+}
